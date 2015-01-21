@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 #define FILENAME "sharedFile.bin"
 
@@ -9,11 +10,24 @@ int num_interations;
 
 void intro();
 void initializeBinaryFile();
+void foo();
 
 int main(){
 
+	int i = 0;
+
 	intro();
 	initializeBinaryFile();
+
+	pthread_t * writers_thread = malloc(sizeof(pthread_t) * num_writers);
+	pthread_t * readers_thread = malloc(sizeof(pthread_t) * num_readers);
+
+	for(i = 0; i < num_writers; i++){
+
+	}
+
+	free(readers_thread);
+	free(writers_thread);
 
 	return 0;
 
@@ -49,4 +63,8 @@ void initializeBinaryFile(){
 		exit(1);
 	}
 
+}
+
+void foo(int theadnum){
+	printf("Hello I am thread: %d\n", threadnum);
 }
