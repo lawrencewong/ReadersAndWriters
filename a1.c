@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <unistd.h>
+#include <string.h>
 
 #define FILENAME "sharedFile.bin"
 
@@ -22,7 +24,7 @@ int main(void){
 	int k = 0 ;
 	int buffer[10];
 	int temp = 2;
-	int fid = 1;
+	int fill = 0;
 	int num_writers = 0;
 	int num_readers = 0;
 	int num_iterations = 0;
@@ -43,7 +45,7 @@ int main(void){
 
 	if( file_ptr != NULL){
 		for(i = 0; i < num_writers; i++){
-			fwrite(&i, sizeof(int), 1, file_ptr);
+			fwrite(&fill, sizeof(int), 1, file_ptr);
 		}
 		fclose(file_ptr);
 	}else{
@@ -57,48 +59,34 @@ int main(void){
 	thread_data writers_thread_data[num_writers];
 	thread_data readers_thread_data[num_readers];
 
-	for(i = 1; i <=num_readers; i++){
+	for(i = 0; i <num_readers; i++){
 		readers_thread_data[i].thread_id = i;
 		readers_thread_data[i].iterations = num_iterations;
 		readers_thread_data[i].writers = num_writers;
 		readers_thread_data[i].readers = num_readers;
 		ret = pthread_create(&readers_thread[i], 0, readNumber, &readers_thread_data[i]);
-		printf("Created %d\n",i);
 		if(ret != 0){
 			printf("Create pthread error!\n");
 			exit(1);
 		}
 	}
 
-	for(i = 1; i <= num_writers; i++){
+	for(i = 0; i <num_writers; i++){
 		writers_thread_data[i].thread_id = i;
 		writers_thread_data[i].iterations = num_iterations;
 		writers_thread_data[i].writers = num_writers;
 		writers_thread_data[i].readers = num_readers;
 		ret = pthread_create(&writers_thread[i], 0, increment, &writers_thread_data[i]);
-		printf("Created %d\n",i);
 		if(ret != 0){
 			printf("Create pthread error!\n");
 			exit(1);
 		}
 	}
 
-	// fp=fopen(FILENAME,"rb+");
-	// fread(buffer, sizeof(int),num_writers,fp);
-	// for(i=0;i<num_writers;i++){
-	// 	printf("BEFORE : %d\n",buffer[i]);
-	// 	if(fid == i){
-	// 		temp = temp + i;
-	// 		fseek(fp,sizeof(int)*i,SEEK_SET);
-	// 		fwrite(&temp, sizeof(int), 1, fp);
-	// 		rewind(fp);
-	// 	}
-		
-	// }
-	for(i=1;i<=num_writers;i++){
+	for(i=0;i<num_writers;i++){
 		pthread_join(writers_thread[i],NULL);
 	}
-	for(i=1;i<=num_readers;i++){
+	for(i=0;i<num_readers;i++){
 		pthread_join(readers_thread[i],NULL);
 	}
 
@@ -109,14 +97,51 @@ int main(void){
 
 void* increment(void* parameter){
 	thread_data * cur_thread;
+	FILE *fp;
 	cur_thread = (thread_data *)parameter;
-	printf("THREAD ID: %d ITERATIONS: %d WRITERS: %d READERS: %d\n",cur_thread->thread_id, cur_thread->iterations, cur_thread->writers, cur_thread->readers);
-	return 0;
+	int value = 0;
+	int i;
+	int k;
+
+	fp = fopen(FILENAME,"rb+");
+	for(k=1;k<=cur_thread->iterations;k++){
+
+		for( i = 0; i < cur_thread->writers; i++){
+			fseek(fp,sizeof(int)*i,SEEK_SET);
+			fread(&value, sizeof(int), 1, fp);
+
+			if( i == cur_thread->thread_id){
+				value++;
+				fseek(fp,sizeof(int)*i,SEEK_SET);
+				fwrite(&value, sizeof(int), 1, fp);
+			}
+		}
+		sleep(rand()%5);
+	}
+	
 }
 
 void* readNumber(void* parameter){
 	thread_data * cur_thread;
 	cur_thread = (thread_data *)parameter;
-	printf("READ THREAD ID: %d ITERATIONS: %d WRITERS: %d READERS: %d\n",cur_thread->thread_id, cur_thread->iterations, cur_thread->writers, cur_thread->readers);
-	return 0;
+	int contents[cur_thread->writers];
+	FILE *fp;
+	char *contents_string = malloc(sizeof(int)*cur_thread->writers);
+	char temp[sizeof(int)];
+	int i;
+	int k;
+	for(k=1;k<=cur_thread->iterations;k++){
+		strcpy(contents_string,"");
+		fp = fopen(FILENAME,"rb+");
+		fread(contents, sizeof(int),cur_thread->writers, fp);
+		for(i=0;i<cur_thread->writers;i++){
+			sprintf(temp, "%d ",contents[i]);
+			strcat(contents_string,temp);
+
+		}
+		printf("Iteration #: %d Reader Thread ID: %d contents: %s \n",k,cur_thread->thread_id+1, contents_string);
+		fflush(stdout);
+		sleep(rand()%5);
+	}
+	free(contents_string);
 }
